@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GO Search — Gene Ontology Explorer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0f0a;
+      color: #e2e8f0;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 32px 40px 24px;
+      border-bottom: 1px solid rgba(74,222,128,0.15);
+    }
+    header h1 { font-size: 28px; font-weight: 700; }
+    header h1 span { color: #4ade80; }
+    header p { color: #64748b; font-size: 13px; margin-top: 4px; }
+
+    .search-area {
+      padding: 32px 40px;
+      background: rgba(74,222,128,0.03);
+      border-bottom: 1px solid rgba(74,222,128,0.1);
+    }
+    .search-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      max-width: 900px;
+    }
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1;
+      min-width: 200px;
+    }
+    label {
+      font-size: 11px;
+      color: #4ade80;
+      font-family: monospace;
+      letter-spacing: 0.08em;
+    }
+    input {
+      background: #0f1a0f;
+      border: 1px solid rgba(74,222,128,0.25);
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: #4ade80; }
+    input::placeholder { color: #374151; }
+
+    .btn {
+      background: #4ade80;
+      color: #0a0f0a;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 28px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      align-self: flex-end;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+    .btn:hover { background: #86efac; }
+    .btn:disabled { background: #1e3a1e; color: #374151; cursor: not-allowed; }
+
+    .results-area {
+      padding: 32px 40px;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 768px) {
+      .results-grid { grid-template-columns: 1fr; }
+      .search-area, .results-area, header { padding: 20px; }
+    }
+
+    .table-card {
+      background: #0f1a0f;
+      border: 1px solid rgba(74,222,128,0.15);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .table-header {
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(74,222,128,0.1);
+    }
+    .table-header h2 {
+      font-size: 13px;
+      font-family: monospace;
+      letter-spacing: 0.08em;
+      color: #4ade80;
+    }
+    .badge {
+      background: rgba(74,222,128,0.15);
+      color: #4ade80;
+      font-size: 11px;
+      font-family: monospace;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+    .badge.ncbi { background: rgba(96,165,250,0.15); color: #60a5fa; }
+    .badge.uniprot { background: rgba(251,191,36,0.15); color: #fbbf24; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th {
+      background: rgba(74,222,128,0.05);
+      color: #4ade80;
+      font-family: monospace;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid rgba(74,222,128,0.1);
+    }
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      vertical-align: top;
+      color: #cbd5e1;
+      line-height: 1.5;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(74,222,128,0.03); }
+
+    .acc-link {
+      color: #4ade80;
+      text-decoration: none;
+      font-family: monospace;
+      font-size: 11px;
+      border-bottom: 1px dashed rgba(74,222,128,0.4);
+    }
+    .acc-link:hover { color: #86efac; }
+    .acc-link.ncbi { color: #60a5fa; border-bottom-color: rgba(96,165,250,0.4); }
+    .acc-link.uniprot { color: #fbbf24; border-bottom-color: rgba(251,191,36,0.4); }
+
+    .go-tag {
+      display: inline-block;
+      background: rgba(251,191,36,0.1);
+      color: #fbbf24;
+      font-size: 10px;
+      font-family: monospace;
+      padding: 2px 7px;
+      border-radius: 4px;
+      margin: 2px 2px 2px 0;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #4ade80;
+      font-family: monospace;
+      font-size: 13px;
+    }
+    .loading::after {
+      content: '';
+      animation: dots 1.2s infinite;
+    }
+    @keyframes dots {
+      0%,20% { content: '.'; }
+      40% { content: '..'; }
+      60%,100% { content: '...'; }
+    }
+
+    .empty {
+      text-align: center;
+      padding: 40px;
+      color: #374151;
+      font-size: 13px;
+    }
+
+    .status-bar {
+      margin-top: 16px;
+      font-size: 12px;
+      color: #64748b;
+      font-family: monospace;
+    }
+    .status-bar span { color: #4ade80; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1><span>GO</span> Search — Gene Ontology Explorer</h1>
+  <p>Search NCBI Protein and UniProt by organism name and Gene Ontology term</p>
+</header>
+
+<div class="search-area">
+  <div class="search-row">
+    <div class="input-group">
+      <label>ORGANISM</label>
+      <input id="organism" type="text" placeholder="e.g. Halomonas smyrnensis" />
+    </div>
+    <div class="input-group">
+      <label>GENE ONTOLOGY TERM</label>
+      <input id="go_term" type="text" placeholder="e.g. GO:0003824 or catalytic activity" />
+    </div>
+    <button class="btn" id="searchBtn" onclick="doSearch()">Search</button>
+  </div>
+  <div class="status-bar" id="statusBar"></div>
+</div>
+
+<div class="results-area" id="resultsArea" style="display:none">
+  <div class="results-grid">
+
+    <!-- NCBI -->
+    <div class="table-card">
+      <div class="table-header">
+        <h2>NCBI PROTEIN</h2>
+        <span class="badge ncbi" id="ncbiBadge">0 results</span>
+      </div>
+      <div id="ncbiContent">
+        <div class="empty">No results yet</div>
+      </div>
+    </div>
+
+    <!-- UniProt -->
+    <div class="table-card">
+      <div class="table-header">
+        <h2>UNIPROT</h2>
+        <span class="badge uniprot" id="uniprotBadge">0 results</span>
+      </div>
+      <div id="uniprotContent">
+        <div class="empty">No results yet</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = "http://localhost:5051";
+
+document.getElementById("go_term").addEventListener("keydown", e => {
+  if (e.key === "Enter") doSearch();
+});
+document.getElementById("organism").addEventListener("keydown", e => {
+  if (e.key === "Enter") doSearch();
+});
+
+async function doSearch() {
+  const organism = document.getElementById("organism").value.trim();
+  const go_term = document.getElementById("go_term").value.trim();
+
+  if (!organism || !go_term) {
+    alert("Please enter both organism and GO term.");
+    return;
+  }
+
+  const btn = document.getElementById("searchBtn");
+  btn.disabled = true;
+  btn.textContent = "Searching...";
+  document.getElementById("statusBar").innerHTML = `Searching <span>${organism}</span> for <span>${go_term}</span>...`;
+  document.getElementById("resultsArea").style.display = "block";
+
+  document.getElementById("ncbiContent").innerHTML = '<div class="loading">Querying NCBI</div>';
+  document.getElementById("uniprotContent").innerHTML = '<div class="loading">Querying UniProt</div>';
+  document.getElementById("ncbiBadge").textContent = "...";
+  document.getElementById("uniprotBadge").textContent = "...";
+
+  try {
+    const res = await fetch(`${API}/search`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ organism, go_term })
+    });
+    const data = await res.json();
+
+    renderNCBI(data.ncbi || []);
+    renderUniProt(data.uniprot || []);
+
+    document.getElementById("ncbiBadge").textContent = `${data.ncbi_total} results`;
+    document.getElementById("uniprotBadge").textContent = `${data.uniprot_total} results`;
+    document.getElementById("statusBar").innerHTML = `Found <span>${data.ncbi_total}</span> NCBI + <span>${data.uniprot_total}</span> UniProt results for <span>${organism}</span> · <span>${go_term}</span>`;
+
+  } catch (e) {
+    document.getElementById("ncbiContent").innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+    document.getElementById("uniprotContent").innerHTML = `<div class="empty">Error: ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Search";
+  }
+}
+
+function renderNCBI(results) {
+  if (!results.length) {
+    document.getElementById("ncbiContent").innerHTML = '<div class="empty">No results found in NCBI Protein</div>';
+    return;
+  }
+  let html = '<table><thead><tr><th>ACCESSION</th><th>PROTEIN NAME</th><th>ORGANISM</th></tr></thead><tbody>';
+  for (const r of results) {
+    html += `<tr>
+      <td><a class="acc-link ncbi" href="${r.link}" target="_blank">${r.accession}</a></td>
+      <td>${r.name || "—"}</td>
+      <td style="color:#94a3b8;font-size:11px">${r.organism || "—"}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById("ncbiContent").innerHTML = html;
+}
+
+function renderUniProt(results) {
+  if (!results.length) {
+    document.getElementById("uniprotContent").innerHTML = '<div class="empty">No results found in UniProt</div>';
+    return;
+  }
+  let html = '<table><thead><tr><th>ACCESSION</th><th>PROTEIN NAME</th><th>ORGANISM</th><th>GO TERMS</th></tr></thead><tbody>';
+  for (const r of results) {
+    const goHtml = (r.go_terms || []).slice(0, 5).map(g => `<span class="go-tag">${g}</span>`).join("");
+    html += `<tr>
+      <td><a class="acc-link uniprot" href="${r.link}" target="_blank">${r.accession}</a></td>
+      <td>${r.name || "—"}</td>
+      <td style="color:#94a3b8;font-size:11px">${r.organism || "—"}</td>
+      <td>${goHtml || "—"}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById("uniprotContent").innerHTML = html;
+}
+</script>
+</body>
+</html>

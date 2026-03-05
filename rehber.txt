@@ -1,0 +1,6 @@
+kullanmak için
+
+terminal aç dosyanın içinde 
+python go_backend.py
+yaz
+sonra html ye tıkla
