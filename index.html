@@ -155,6 +155,10 @@
     .acc-link.ncbi { color: #60a5fa; border-bottom-color: rgba(96,165,250,0.4); }
     .acc-link.uniprot { color: #fbbf24; border-bottom-color: rgba(251,191,36,0.4); }
 
+    /* GO tag with evidence */
+    .go-entry {
+      margin: 2px 0;
+    }
     .go-tag {
       display: inline-block;
       background: rgba(251,191,36,0.1);
@@ -162,9 +166,58 @@
       font-size: 10px;
       font-family: monospace;
       padding: 2px 7px;
-      border-radius: 4px;
-      margin: 2px 2px 2px 0;
+      border-radius: 4px 0 0 4px;
+      margin-right: 0;
     }
+    .ev-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-family: monospace;
+      padding: 2px 6px;
+      border-radius: 0 4px 4px 0;
+      margin-right: 4px;
+    }
+    /* Evidence color coding */
+    .ev-IEA  { background: rgba(100,116,139,0.25); color: #94a3b8; }
+    .ev-ISS  { background: rgba(139,92,246,0.2);   color: #c4b5fd; }
+    .ev-IDA  { background: rgba(34,197,94,0.2);    color: #86efac; }
+    .ev-IPI  { background: rgba(34,197,94,0.2);    color: #86efac; }
+    .ev-IMP  { background: rgba(34,197,94,0.2);    color: #86efac; }
+    .ev-IGI  { background: rgba(34,197,94,0.2);    color: #86efac; }
+    .ev-IEP  { background: rgba(34,197,94,0.2);    color: #86efac; }
+    .ev-EXP  { background: rgba(16,185,129,0.3);   color: #6ee7b7; }
+    .ev-TAS  { background: rgba(251,146,60,0.2);   color: #fdba74; }
+    .ev-NAS  { background: rgba(251,146,60,0.2);   color: #fdba74; }
+    .ev-IC   { background: rgba(251,146,60,0.2);   color: #fdba74; }
+    .ev-RCA  { background: rgba(100,116,139,0.25); color: #94a3b8; }
+    .ev-default { background: rgba(100,116,139,0.2); color: #94a3b8; }
+
+    /* Protein existence badge */
+    .pe-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-family: monospace;
+      padding: 2px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+    .pe-1 { background: rgba(16,185,129,0.2); color: #6ee7b7; }   /* Experimental */
+    .pe-2 { background: rgba(96,165,250,0.2); color: #93c5fd; }   /* Transcript */
+    .pe-3 { background: rgba(139,92,246,0.2); color: #c4b5fd; }   /* Homology */
+    .pe-4 { background: rgba(100,116,139,0.2); color: #94a3b8; }  /* Predicted */
+    .pe-5 { background: rgba(239,68,68,0.2);  color: #fca5a5; }   /* Uncertain */
+
+    /* Reviewed badge */
+    .reviewed-badge {
+      display: inline-block;
+      font-size: 9px;
+      font-family: monospace;
+      padding: 1px 6px;
+      border-radius: 10px;
+      margin-left: 4px;
+    }
+    .reviewed-yes { background: rgba(251,191,36,0.2); color: #fbbf24; }
+    .reviewed-no  { background: rgba(100,116,139,0.15); color: #64748b; }
 
     .loading {
       text-align: center;
@@ -197,6 +250,20 @@
       font-family: monospace;
     }
     .status-bar span { color: #4ade80; }
+
+    /* Evidence legend */
+    .legend {
+      margin-top: 20px;
+      padding: 14px 18px;
+      background: rgba(74,222,128,0.03);
+      border: 1px solid rgba(74,222,128,0.08);
+      border-radius: 8px;
+      font-size: 11px;
+      font-family: monospace;
+      color: #64748b;
+    }
+    .legend-title { color: #4ade80; margin-bottom: 8px; font-size: 10px; letter-spacing: 0.1em; }
+    .legend-items { display: flex; flex-wrap: wrap; gap: 6px; }
   </style>
 </head>
 <body>
@@ -246,6 +313,21 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- Evidence Legend -->
+  <div class="legend">
+    <div class="legend-title">EVIDENCE CODE LEGEND</div>
+    <div class="legend-items">
+      <span class="ev-tag ev-EXP">EXP</span><span style="margin-right:8px">Inferred from Experiment</span>
+      <span class="ev-tag ev-IDA">IDA</span><span style="margin-right:8px">Direct Assay</span>
+      <span class="ev-tag ev-IPI">IPI</span><span style="margin-right:8px">Physical Interaction</span>
+      <span class="ev-tag ev-IMP">IMP</span><span style="margin-right:8px">Mutant Phenotype</span>
+      <span class="ev-tag ev-ISS">ISS</span><span style="margin-right:8px">Sequence Similarity</span>
+      <span class="ev-tag ev-IEA">IEA</span><span style="margin-right:8px">Electronic Annotation</span>
+      <span class="ev-tag ev-TAS">TAS</span><span style="margin-right:8px">Traceable Author Statement</span>
+      <span class="ev-tag ev-IC">IC</span><span style="margin-right:8px">Inferred by Curator</span>
+    </div>
   </div>
 </div>
 
@@ -303,21 +385,67 @@ async function doSearch() {
   }
 }
 
+function evClass(code) {
+  if (!code) return 'ev-default';
+  const c = code.trim().toUpperCase();
+  const known = ['IEA','ISS','IDA','IPI','IMP','IGI','IEP','EXP','TAS','NAS','IC','RCA'];
+  return known.includes(c) ? `ev-${c}` : 'ev-default';
+}
+
+function renderEvidenceTags(evString) {
+  if (!evString) return '<span class="ev-tag ev-default">—</span>';
+  return evString.split(',').map(e => {
+    const code = e.trim();
+    return `<span class="ev-tag ${evClass(code)}">${code || '—'}</span>`;
+  }).join('');
+}
+
 function renderNCBI(results) {
   if (!results.length) {
     document.getElementById("ncbiContent").innerHTML = '<div class="empty">No results found in NCBI Protein</div>';
     return;
   }
-  let html = '<table><thead><tr><th>ACCESSION</th><th>PROTEIN NAME</th><th>ORGANISM</th></tr></thead><tbody>';
+  let html = `<table><thead><tr>
+    <th>ACCESSION</th>
+    <th>PROTEIN NAME</th>
+    <th>ORGANISM</th>
+    <th>GO ANNOTATIONS & EVIDENCE</th>
+  </tr></thead><tbody>`;
+
   for (const r of results) {
+    // Build GO + evidence display
+    let goHtml = '—';
+    if (r.go_annotations && r.go_annotations.length > 0) {
+      goHtml = r.go_annotations.slice(0, 5).map(g => {
+        const typeLabel = (g.type || '').replace('GO_', '').toUpperCase();
+        return `<div class="go-entry">
+          <span class="go-tag">${g.term}</span>${renderEvidenceTags(g.evidence)}
+          <span style="color:#475569;font-size:9px;margin-left:2px">${typeLabel}</span>
+        </div>`;
+      }).join('');
+    } else if (r.evidence_codes && r.evidence_codes.length > 0) {
+      goHtml = renderEvidenceTags(r.evidence_codes.join(', '));
+    }
+
     html += `<tr>
       <td><a class="acc-link ncbi" href="${r.link}" target="_blank">${r.accession}</a></td>
       <td>${r.name || "—"}</td>
       <td style="color:#94a3b8;font-size:11px">${r.organism || "—"}</td>
+      <td>${goHtml}</td>
     </tr>`;
   }
   html += '</tbody></table>';
   document.getElementById("ncbiContent").innerHTML = html;
+}
+
+function peClass(peText) {
+  if (!peText) return 'pe-4';
+  const t = peText.toLowerCase();
+  if (t.includes('experiment') || t.includes('protein level')) return 'pe-1';
+  if (t.includes('transcript')) return 'pe-2';
+  if (t.includes('homology')) return 'pe-3';
+  if (t.includes('uncertain')) return 'pe-5';
+  return 'pe-4';
 }
 
 function renderUniProt(results) {
@@ -325,14 +453,37 @@ function renderUniProt(results) {
     document.getElementById("uniprotContent").innerHTML = '<div class="empty">No results found in UniProt</div>';
     return;
   }
-  let html = '<table><thead><tr><th>ACCESSION</th><th>PROTEIN NAME</th><th>ORGANISM</th><th>GO TERMS</th></tr></thead><tbody>';
+  let html = `<table><thead><tr>
+    <th>ACCESSION</th>
+    <th>PROTEIN NAME</th>
+    <th>ORGANISM</th>
+    <th>PROTEIN EXISTENCE</th>
+    <th>GO TERMS & EVIDENCE</th>
+  </tr></thead><tbody>`;
+
   for (const r of results) {
-    const goHtml = (r.go_terms || []).slice(0, 5).map(g => `<span class="go-tag">${g}</span>`).join("");
+    const pe = r.protein_existence || "Unknown";
+    const peC = peClass(pe);
+    const reviewedHtml = r.reviewed
+      ? `<span class="reviewed-badge reviewed-yes">Swiss-Prot</span>`
+      : `<span class="reviewed-badge reviewed-no">TrEMBL</span>`;
+
+    const goHtml = (r.go_terms || []).slice(0, 5).map(g => {
+      const label = g.name ? `${g.id}: ${g.name}` : g.id;
+      return `<div class="go-entry">
+        <span class="go-tag">${label}</span>${renderEvidenceTags(g.evidence)}
+      </div>`;
+    }).join('') || '—';
+
     html += `<tr>
-      <td><a class="acc-link uniprot" href="${r.link}" target="_blank">${r.accession}</a></td>
+      <td>
+        <a class="acc-link uniprot" href="${r.link}" target="_blank">${r.accession}</a>
+        ${reviewedHtml}
+      </td>
       <td>${r.name || "—"}</td>
       <td style="color:#94a3b8;font-size:11px">${r.organism || "—"}</td>
-      <td>${goHtml || "—"}</td>
+      <td><span class="pe-badge ${peC}">${pe}</span></td>
+      <td>${goHtml}</td>
     </tr>`;
   }
   html += '</tbody></table>';
